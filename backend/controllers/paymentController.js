@@ -37,7 +37,7 @@ const initPayment = async (req, res) => {
       total_amount: PREMIUM_AMOUNT,
       currency: "BDT",
       tran_id: transactionId,
-      // payment er por sslcommerz ei url gulo te user ke pathabe (Step 19 e banabo)
+      // payment er por sslcommerz ei url gulo te user ke pathabe
       success_url: `${process.env.SERVER_URL}/api/v1/payments/success/${transactionId}`,
       fail_url: `${process.env.SERVER_URL}/api/v1/payments/fail/${transactionId}`,
       cancel_url: `${process.env.SERVER_URL}/api/v1/payments/cancel/${transactionId}`,
@@ -76,4 +76,71 @@ const initPayment = async (req, res) => {
   }
 };
 
-module.exports = { initPayment };
+// payment shesh hole user ke frontend er premium page e pathai
+const redirectToClient = (res, status) => {
+  res.redirect(`${process.env.CLIENT_URL}/premium?status=${status}`);
+};
+
+// payment successful hole sslcommerz user ke ekhane pathabe
+const paymentSuccess = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const { val_id } = req.body;
+
+    const payment = await Payment.findOne({ transactionId });
+    if (!payment) {
+      return redirectToClient(res, "failed");
+    }
+
+    // age e success hoye thakle abar kichu korar dorkar nai
+    if (payment.status === "success") {
+      return redirectToClient(res, "success");
+    }
+
+    // sslcommerz ke jiggesh kore nishchit hocchi je payment sotti hoyeche
+    const sslcz = new SSLCommerzPayment(storeId, storePassword, isLive);
+    const validation = await sslcz.validate({ val_id });
+
+    const isPaid =
+      validation &&
+      (validation.status === "VALID" || validation.status === "VALIDATED") &&
+      validation.tran_id === transactionId &&
+      Number(validation.amount) === payment.amount;
+
+    if (!isPaid) {
+      payment.status = "failed";
+      await payment.save();
+      return redirectToClient(res, "failed");
+    }
+
+    // payment sotti hole record update kore user ke premium kore dichhi
+    payment.status = "success";
+    payment.valId = val_id;
+    await payment.save();
+    await User.findByIdAndUpdate(payment.user, { isPremium: true });
+
+    redirectToClient(res, "success");
+  } catch (error) {
+    redirectToClient(res, "failed");
+  }
+};
+
+// payment fail hole
+const paymentFail = async (req, res) => {
+  await Payment.findOneAndUpdate(
+    { transactionId: req.params.transactionId, status: "pending" },
+    { status: "failed" }
+  );
+  redirectToClient(res, "failed");
+};
+
+// user payment cancel korle
+const paymentCancel = async (req, res) => {
+  await Payment.findOneAndUpdate(
+    { transactionId: req.params.transactionId, status: "pending" },
+    { status: "cancelled" }
+  );
+  redirectToClient(res, "cancelled");
+};
+
+module.exports = { initPayment, paymentSuccess, paymentFail, paymentCancel };
