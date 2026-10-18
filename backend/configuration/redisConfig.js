@@ -1,14 +1,14 @@
 const { createClient } = require("redis");
 
-// Redis ক্লায়েন্ট বানাচ্ছি, OTP এখানে ৫ মিনিটের জন্য থাকবে
+// Redis jno 5min por ecpire hoy na, tai ei config ta kora hocche
 const redisClient = createClient({
   url: process.env.REDIS_URL,
 });
 
-// কোনো সমস্যা হলে টার্মিনালে দেখাবে
+// kono prblm hole error console e show korbe
 redisClient.on("error", (err) => console.log("Redis error:", err.message));
 
-// Redis এর সাথে কানেক্ট করার ফাংশন
+// Redis er sahte connect er func
 const redisConfig = async () => {
   await redisClient.connect();
   console.log("Redis connected");

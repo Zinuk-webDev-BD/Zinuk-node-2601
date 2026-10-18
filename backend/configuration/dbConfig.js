@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-// MongoDB এর সাথে কানেক্ট করার ফাংশন
+// mongodb r sathe connect korte function
 const dbConfig = () => {
   mongoose
     .connect(process.env.MONGO_URI)
