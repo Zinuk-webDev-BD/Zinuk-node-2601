@@ -10,6 +10,7 @@ const swaggerSpec = require("./configuration/swaggerConfig");
 const dbConfig = require("./configuration/dbConfig");
 const { redisConfig } = require("./configuration/redisConfig");
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const PORT = process.env.PORT || 8000;
 const BASE_URL = process.env.BASE_URL || "/api/v1";
@@ -29,6 +30,9 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // auth route er jonno middleware set kora hocche
 app.use(BASE_URL + "/auth", authRoutes);
+
+// user profile route
+app.use(BASE_URL + "/users", userRoutes);
 
 // server start er jonno function, jekhane database and redis connect kora hocche
 const startServer = async () => {

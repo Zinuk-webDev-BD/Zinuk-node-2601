@@ -21,7 +21,7 @@ const swaggerSpec = {
     title: "Auth System API",
     version: "1.0.0",
     description:
-      "Authentication system with email otp (redis), jwt login, forgot/reset/change password, google and github login.",
+      "Authentication system with email otp (redis), jwt login, forgot/reset/change password, google and github login, and user profile.",
   },
   // all paths below start from this base url
   servers: [{ url: "http://localhost:8000/api/v1/auth" }],
@@ -142,6 +142,44 @@ const swaggerSpec = {
         tags: ["Social Login"],
         summary: "Login with GitHub (open this url in the browser, not in swagger)",
         responses: { 302: reply("redirects to the github login page") },
+      },
+    },
+    // the profile apis live under /users, so the path is written in full
+    "/../users/profile": {
+      get: {
+        tags: ["Profile"],
+        summary: "Get my profile (login required)",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: reply("profile info"),
+          401: reply("token missing, invalid or expired"),
+        },
+      },
+      put: {
+        tags: ["Profile"],
+        summary: "Update my profile, send only the fields you want to change",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: str("Zinuk"),
+                  phone: str("01712345678"),
+                  bio: str("I love coding"),
+                  address: str("Dhaka, Bangladesh"),
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: reply("profile updated successfully"),
+          400: reply("nothing to update or invalid data"),
+          401: reply("token missing or invalid"),
+        },
       },
     },
   },

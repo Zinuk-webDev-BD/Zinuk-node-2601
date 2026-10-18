@@ -30,6 +30,36 @@ const userSchema = new mongoose.Schema(
       enum: ["local", "google", "github"],
       default: "local",
     },
+    // profile er fields, user pore add ba update korte parbe
+    phone: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    bio: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 200,
+    },
+    address: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    profilePicture: {
+      type: String,
+      default: "",
+    },
+    // real time chat e user online ache kina dekhar jonno (pore kaje lagbe)
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true } // createdAt and updatedAt automatically add hobe
 );
