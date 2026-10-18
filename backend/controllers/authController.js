@@ -231,4 +231,59 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = { register, verifyOtp, login, forgotPassword, resetPassword };
+// change password: logged in user changes password using the old one
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "oldPassword and newPassword are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "password must be at least 6 characters" });
+    }
+
+    // req.user has no password (middleware removed it), so load the user again with password
+    const user = await User.findById(req.user._id);
+
+    // google/github users have no password to change
+    if (!user.password) {
+      return res.status(400).json({ message: "this account uses social login" });
+    }
+
+    // check the old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "old password is incorrect" });
+    }
+
+    // do not allow the same password again
+    if (oldPassword === newPassword) {
+      return res
+        .status(400)
+        .json({ message: "new password must be different from old password" });
+    }
+
+    // hash the new password and save it
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.status(200).json({ message: "password changed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "server error", error: error.message });
+  }
+};
+
+module.exports = {
+  register,
+  verifyOtp,
+  login,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+};

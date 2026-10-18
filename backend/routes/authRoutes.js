@@ -5,6 +5,7 @@ const {
   login,
   forgotPassword,
   resetPassword,
+  changePassword,
 } = require("../controllers/authController");
 const authMiddleware = require("../middleware/authMiddleware");
 
@@ -25,10 +26,12 @@ router.post("/forgot-password", forgotPassword);
 // POST /api/v1/auth/reset-password
 router.post("/reset-password", resetPassword);
 
+// PUT /api/v1/auth/change-password (only for logged in users)
+router.put("/change-password", authMiddleware, changePassword);
+
 // GET /api/v1/auth/me (shows own info if the token is valid)
 router.get("/me", authMiddleware, (req, res) => {
   res.status(200).json({ user: req.user });
 });
 
 module.exports = router;
-
