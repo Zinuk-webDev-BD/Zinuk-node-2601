@@ -5,6 +5,8 @@ dns.setServers(["8.8.8.8", "1.1.1.1"]);
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./configuration/swaggerConfig");
 const dbConfig = require("./configuration/dbConfig");
 const { redisConfig } = require("./configuration/redisConfig");
 const authRoutes = require("./routes/authRoutes");
@@ -22,6 +24,9 @@ app.get("/", (req, res) => {
   res.json({ message: "Auth system is running" });
 });
 
+// swagger docs page, browser e /api-docs khulle API list dekha jabe
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // auth route er jonno middleware set kora hocche
 app.use(BASE_URL + "/auth", authRoutes);
 
@@ -36,4 +41,3 @@ const startServer = async () => {
 };
 
 startServer();
-
