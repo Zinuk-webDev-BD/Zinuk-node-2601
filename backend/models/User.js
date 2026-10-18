@@ -60,6 +60,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // premium subscribe korle true hobe, tokhon group create korte parbe
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true } // createdAt and updatedAt automatically add hobe
 );
