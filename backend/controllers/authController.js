@@ -3,11 +3,12 @@ const User = require("../models/User");
 const { redisClient } = require("../configuration/redisConfig");
 const generateOtp = require("../helpers/generateOtp");
 const sendEmail = require("../helpers/sendEmail");
+const generateToken = require("../helpers/generateToken");
 
-// OTP expire time 5min set kora hocche, jate user OTP verify korte pare
+// OTP কতক্ষণ Redis এ থাকবে (৫ মিনিট = ৩০০ সেকেন্ড)
 const OTP_EXPIRE_SECONDS = 300;
 
-// new user register er jonno function, jekhane name, email and password check kora hocche, then user create kora hocche, OTP generate kora hocche, Redis e save kora hocche and user er email e pathano hocche
+// নতুন ইউজার রেজিস্ট্রেশন + OTP পাঠানো
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -20,7 +21,7 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "password must be at least 6 characters" });
     }
 
-    // email already exist kore kina check kora hocche, jodi thake tahole 409 status code pathano hocche
+    // এই ইমেইলে আগে থেকে অ্যাকাউন্ট আছে কিনা দেখছি
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ message: "email already exists" });
@@ -34,11 +35,11 @@ const register = async (req, res) => {
       password: hashedPassword,
     });
 
-    // OTP generate kora hocche, Redis e save kora hocche, and user er email e pathano hocche
+    // OTP বানিয়ে Redis এ ৫ মিনিটের জন্য রাখছি (EX = expire, সেকেন্ডে)
     const otp = generateOtp();
     await redisClient.set(`otp:${user.email}`, otp, { EX: OTP_EXPIRE_SECONDS });
 
-    // user er email e OTP pathano hocche
+    // ইউজারের ইমেইলে OTP পাঠাচ্ছি
     await sendEmail(
       user.email,
       "Verify your email",
@@ -62,7 +63,7 @@ const register = async (req, res) => {
   }
 };
 
-// OTP verification er jonno function, jekhane user er email and otp check kora hocche
+// OTP মিলিয়ে ইমেইল ভেরিফাই করার ফাংশন
 const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -80,7 +81,7 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "email is already verified" });
     }
 
-    // Redis theke OTP check kora hocche, jodi expire hoye jai ba na thake, tahole error pathano hocche
+    // Redis থেকে OTP আনছি। ৫ মিনিট পার হলে এটা null আসবে
     const savedOtp = await redisClient.get(`otp:${user.email}`);
     if (!savedOtp) {
       return res.status(400).json({ message: "otp expired or not found" });
@@ -90,7 +91,7 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "invalid otp" });
     }
 
-    // user.isVerified true kore save kora hocche, and Redis theke OTP delete kora hocche
+    // সঠিক হলে ইউজারকে verified করছি, আর Redis থেকে OTP মুছে দিচ্ছি
     user.isVerified = true;
     await user.save();
     await redisClient.del(`otp:${user.email}`);
@@ -101,4 +102,50 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-module.exports = { register, verifyOtp };
+// লগইনের ফাংশন
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "email and password are required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: "invalid email or password" });
+    }
+
+    // Google/GitHub ইউজারের পাসওয়ার্ড নেই, তাই তাদের এখানে আটকাচ্ছি
+    if (!user.password) {
+      return res.status(400).json({ message: "this account uses social login" });
+    }
+
+    // পাসওয়ার্ড মিলছে কিনা দেখছি
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "invalid email or password" });
+    }
+
+    // ইমেইল verified না হলে লগইন করতে দেব না
+    if (!user.isVerified) {
+      return res.status(403).json({ message: "please verify your email first" });
+    }
+
+    const token = generateToken(user._id);
+
+    res.status(200).json({
+      message: "login successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "server error", error: error.message });
+  }
+};
+
+module.exports = { register, verifyOtp, login };
