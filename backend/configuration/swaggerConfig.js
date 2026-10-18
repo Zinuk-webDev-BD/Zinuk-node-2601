@@ -1,3 +1,5 @@
+const friendPaths = require("./swaggerFriendPaths");
+const chatPaths = require("./swaggerChatPaths");
 // small helpers so we do not repeat the same code again and again
 const str = (example) => ({ type: "string", example });
 
@@ -32,6 +34,10 @@ const swaggerSpec = {
     },
   },
   paths: {
+    // friend apis are written in a separate file
+    ...friendPaths,
+    // chat apis are written in a separate file
+    ...chatPaths,
     "/auth/register": {
       post: {
         tags: ["Auth"],
@@ -216,4 +222,3 @@ const swaggerSpec = {
 };
 
 module.exports = swaggerSpec;
-

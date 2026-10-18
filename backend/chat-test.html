@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Chat test</title></head>
+<body style="font-family:sans-serif;max-width:600px;margin:20px auto">
+  <h3>Chat test</h3>
+  <input id="token" placeholder="token (Bearer likhbe na)" style="width:100%"><br><br>
+  <input id="friend" placeholder="bondhur user id" style="width:100%"><br><br>
+  <button onclick="connectSocket()">Connect</button>
+  <button onclick="loadHistory()">Load history</button>
+  <hr>
+  <input id="text" placeholder="message likho" style="width:75%">
+  <button onclick="sendMessage()">Send</button>
+  <pre id="log" style="background:#eee;padding:10px;height:300px;overflow:auto"></pre>
+
+  <script src="http://localhost:8000/socket.io/socket.io.js"></script>
+  <script>
+    let socket;
+    const log = (t) => { const l = document.getElementById("log"); l.textContent += t + "\n"; l.scrollTop = l.scrollHeight; };
+
+    function connectSocket() {
+      socket = io("http://localhost:8000", { auth: { token: document.getElementById("token").value.trim() } });
+      socket.on("connect", () => log("connected"));
+      socket.on("connect_error", (e) => log("connect error: " + e.message));
+      socket.on("new_message", (m) => log("NEW: " + m.text));
+      socket.on("friend_online", (d) => log("friend online: " + d.userId));
+      socket.on("friend_offline", (d) => log("friend offline: " + d.userId + " lastSeen " + d.lastSeen));
+    }
+
+    function sendMessage() {
+      const to = document.getElementById("friend").value.trim();
+      const text = document.getElementById("text").value;
+      socket.emit("send_message", { to, text }, (res) => {
+        log(res.ok ? "ME: " + res.message.text : "error: " + res.message);
+      });
+      document.getElementById("text").value = "";
+    }
+
+    async function loadHistory() {
+      const id = document.getElementById("friend").value.trim();
+      const res = await fetch("http://localhost:8000/api/v1/chats/" + id, {
+        headers: { Authorization: "Bearer " + document.getElementById("token").value.trim() },
+      });
+      const data = await res.json();
+      log(res.status + " " + JSON.stringify(data));
+    }
+  </script>
+</body>
+</html>

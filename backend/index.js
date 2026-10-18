@@ -3,6 +3,7 @@ const dns = require("dns");
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 require("dotenv").config();
+const http = require("http");
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
@@ -11,6 +12,9 @@ const dbConfig = require("./configuration/dbConfig");
 const { redisConfig } = require("./configuration/redisConfig");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const friendRoutes = require("./routes/friendRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+const setupSocket = require("./socket/socket");
 
 const PORT = process.env.PORT || 8000;
 const BASE_URL = process.env.BASE_URL || "/api/v1";
@@ -34,12 +38,22 @@ app.use(BASE_URL + "/auth", authRoutes);
 // user profile route
 app.use(BASE_URL + "/users", userRoutes);
 
+// friend suggestion, request and friend list route
+app.use(BASE_URL + "/friends", friendRoutes);
+
+// chat message history route
+app.use(BASE_URL + "/chats", chatRoutes);
+
 // server start er jonno function, jekhane database and redis connect kora hocche
 const startServer = async () => {
   dbConfig();
   await redisConfig();
 
-  app.listen(PORT, () => {
+  // socket.io chalate http server lagbe
+  const server = http.createServer(app);
+  setupSocket(server);
+
+  server.listen(PORT, () => {
     console.log("Server is running on: " + PORT);
   });
 };
