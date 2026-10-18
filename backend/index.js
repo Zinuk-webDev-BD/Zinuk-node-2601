@@ -14,6 +14,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const friendRoutes = require("./routes/friendRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 const setupSocket = require("./socket/socket");
 
 const PORT = process.env.PORT || 8000;
@@ -23,6 +24,8 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+// sslcommerz success/fail e form data pathay, tai eta lagbe (Step 19 e kaje lagbe)
+app.use(express.urlencoded({ extended: true }));
 
 // server er root route e ekta simple message pathano hocche, jate bujha jay server run korche
 app.get("/", (req, res) => {
@@ -43,6 +46,9 @@ app.use(BASE_URL + "/friends", friendRoutes);
 
 // chat message history route
 app.use(BASE_URL + "/chats", chatRoutes);
+
+// premium payment route
+app.use(BASE_URL + "/payments", paymentRoutes);
 
 // server start er jonno function, jekhane database and redis connect kora hocche
 const startServer = async () => {

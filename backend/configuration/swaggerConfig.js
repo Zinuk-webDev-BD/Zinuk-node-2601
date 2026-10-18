@@ -23,7 +23,7 @@ const swaggerSpec = {
     title: "Auth System API",
     version: "1.0.0",
     description:
-      "Authentication system with email otp (redis), jwt login, forgot/reset/change password, google and github login, user profile and profile picture upload (cloudinary).",
+      "Authentication system with email otp (redis), jwt login, forgot/reset/change password, google and github login, user profile and profile picture upload (cloudinary), premium payment (sslcommerz).",
   },
   // every path below starts from this base url
   servers: [{ url: "http://localhost:8000/api/v1" }],
@@ -215,6 +215,19 @@ const swaggerSpec = {
           200: reply("profile picture updated, new image url returned"),
           400: reply("no image, image too big or wrong file type"),
           401: reply("token missing or invalid"),
+        },
+      },
+    },
+    "/payments/subscribe": {
+      post: {
+        tags: ["Payment"],
+        summary: "Start premium subscription payment (login required)",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: reply("payment started, open the returned url in the browser"),
+          400: reply("already a premium user"),
+          401: reply("token missing or invalid"),
+          502: reply("sslcommerz could not start the payment"),
         },
       },
     },
