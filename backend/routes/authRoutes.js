@@ -1,5 +1,11 @@
 const express = require("express");
-const { register, verifyOtp, login } = require("../controllers/authController");
+const {
+  register,
+  verifyOtp,
+  login,
+  forgotPassword,
+  resetPassword,
+} = require("../controllers/authController");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -13,9 +19,16 @@ router.post("/verify-otp", verifyOtp);
 // POST /api/v1/auth/login
 router.post("/login", login);
 
-// GET /api/v1/auth/me (user er information ber korar jonno route, jekhane authMiddleware use kora hocche, jate user login thakle tar information ber kora jay)
+// POST /api/v1/auth/forgot-password
+router.post("/forgot-password", forgotPassword);
+
+// POST /api/v1/auth/reset-password
+router.post("/reset-password", resetPassword);
+
+// GET /api/v1/auth/me (shows own info if the token is valid)
 router.get("/me", authMiddleware, (req, res) => {
   res.status(200).json({ user: req.user });
 });
 
 module.exports = router;
+

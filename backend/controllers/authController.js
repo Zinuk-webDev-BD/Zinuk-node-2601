@@ -5,10 +5,10 @@ const generateOtp = require("../helpers/generateOtp");
 const sendEmail = require("../helpers/sendEmail");
 const generateToken = require("../helpers/generateToken");
 
-// OTP কতক্ষণ Redis এ থাকবে (৫ মিনিট = ৩০০ সেকেন্ড)
+// how long an otp stays in redis (5 minutes = 300 seconds)
 const OTP_EXPIRE_SECONDS = 300;
 
-// নতুন ইউজার রেজিস্ট্রেশন + OTP পাঠানো
+// register a new user and send a verification otp
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -21,7 +21,7 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "password must be at least 6 characters" });
     }
 
-    // এই ইমেইলে আগে থেকে অ্যাকাউন্ট আছে কিনা দেখছি
+    // check if an account with this email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ message: "email already exists" });
@@ -35,11 +35,11 @@ const register = async (req, res) => {
       password: hashedPassword,
     });
 
-    // OTP বানিয়ে Redis এ ৫ মিনিটের জন্য রাখছি (EX = expire, সেকেন্ডে)
+    // create otp and keep it in redis for 5 minutes (EX = expire in seconds)
     const otp = generateOtp();
     await redisClient.set(`otp:${user.email}`, otp, { EX: OTP_EXPIRE_SECONDS });
 
-    // ইউজারের ইমেইলে OTP পাঠাচ্ছি
+    // send the otp to the user's email
     await sendEmail(
       user.email,
       "Verify your email",
@@ -63,7 +63,7 @@ const register = async (req, res) => {
   }
 };
 
-// OTP মিলিয়ে ইমেইল ভেরিফাই করার ফাংশন
+// check the otp and verify the user's email
 const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -81,7 +81,7 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "email is already verified" });
     }
 
-    // Redis থেকে OTP আনছি। ৫ মিনিট পার হলে এটা null আসবে
+    // get the otp from redis (null means it expired after 5 minutes)
     const savedOtp = await redisClient.get(`otp:${user.email}`);
     if (!savedOtp) {
       return res.status(400).json({ message: "otp expired or not found" });
@@ -91,7 +91,7 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "invalid otp" });
     }
 
-    // সঠিক হলে ইউজারকে verified করছি, আর Redis থেকে OTP মুছে দিচ্ছি
+    // otp is correct: mark user as verified and remove the otp from redis
     user.isVerified = true;
     await user.save();
     await redisClient.del(`otp:${user.email}`);
@@ -102,7 +102,7 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-// লগইনের ফাংশন
+// login with email and password
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -116,18 +116,18 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "invalid email or password" });
     }
 
-    // Google/GitHub ইউজারের পাসওয়ার্ড নেই, তাই তাদের এখানে আটকাচ্ছি
+    // google/github users have no password, so stop them here
     if (!user.password) {
       return res.status(400).json({ message: "this account uses social login" });
     }
 
-    // পাসওয়ার্ড মিলছে কিনা দেখছি
+    // check if the password matches
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "invalid email or password" });
     }
 
-    // ইমেইল verified না হলে লগইন করতে দেব না
+    // do not allow login before the email is verified
     if (!user.isVerified) {
       return res.status(403).json({ message: "please verify your email first" });
     }
@@ -148,4 +148,87 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, verifyOtp, login };
+// forgot password: send a reset otp to the user's email
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "email is required" });
+    }
+
+    const user = await User.findOne({ email });
+
+    // same message for every case, so nobody can guess which emails are registered
+    const safeMessage = "if this email is registered, a reset otp has been sent";
+
+    if (!user) {
+      return res.status(200).json({ message: safeMessage });
+    }
+
+    // create otp and keep it in redis for 5 minutes
+    const otp = generateOtp();
+    await redisClient.set(`reset:${user.email}`, otp, { EX: OTP_EXPIRE_SECONDS });
+
+    // send the otp to the user's email
+    await sendEmail(
+      user.email,
+      "Reset your password",
+      `<h2>Hello ${user.name}</h2>
+       <p>Your password reset code is:</p>
+       <h1>${otp}</h1>
+       <p>This code will expire in 5 minutes.</p>`
+    );
+
+    res.status(200).json({ message: safeMessage });
+  } catch (error) {
+    res.status(500).json({ message: "server error", error: error.message });
+  }
+};
+
+// reset password: check the otp and save the new password
+const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "email, otp and newPassword are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "password must be at least 6 characters" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "invalid otp" });
+    }
+
+    // get the otp from redis (null means it expired or was never sent)
+    const savedOtp = await redisClient.get(`reset:${user.email}`);
+    if (!savedOtp) {
+      return res.status(400).json({ message: "otp expired or not found" });
+    }
+
+    if (savedOtp !== otp.toString()) {
+      return res.status(400).json({ message: "invalid otp" });
+    }
+
+    // hash the new password and save it
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    // otp is used once, so remove it from redis
+    await redisClient.del(`reset:${user.email}`);
+
+    res.status(200).json({ message: "password reset successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "server error", error: error.message });
+  }
+};
+
+module.exports = { register, verifyOtp, login, forgotPassword, resetPassword };
