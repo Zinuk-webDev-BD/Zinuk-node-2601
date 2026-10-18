@@ -1,5 +1,9 @@
 const express = require("express");
-const { createGroup, getMyGroups } = require("../controllers/groupController");
+const {
+  createGroup,
+  getMyGroups,
+  getGroupMessages,
+} = require("../controllers/groupController");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -9,5 +13,8 @@ router.post("/", authMiddleware, createGroup);
 
 // GET /api/v1/groups (my groups)
 router.get("/", authMiddleware, getMyGroups);
+
+// GET /api/v1/groups/:groupId/messages (old messages, members only)
+router.get("/:groupId/messages", authMiddleware, getGroupMessages);
 
 module.exports = router;

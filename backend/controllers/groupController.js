@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const Group = require("../models/Group");
 const User = require("../models/User");
+const GroupMessage = require("../models/GroupMessage");
+const areFriends = require("../helpers/areFriends");
 
 // create a new group (only premium users)
 const createGroup = async (req, res) => {
@@ -41,6 +43,15 @@ const createGroup = async (req, res) => {
       return res.status(404).json({ message: "one or more users not found" });
     }
 
+    // sudhu bondhuder group e add kora jabe
+    for (const id of uniqueIds) {
+      if (!(await areFriends(myId, id))) {
+        return res
+          .status(403)
+          .json({ message: "you can add only your friends to a group" });
+      }
+    }
+
     const group = await Group.create({
       name: name.trim(),
       admin: req.user._id,
@@ -71,4 +82,36 @@ const getMyGroups = async (req, res) => {
   }
 };
 
-module.exports = { createGroup, getMyGroups };
+// get old messages of a group (only members can see)
+const getGroupMessages = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    if (!mongoose.isValidObjectId(groupId)) {
+      return res.status(400).json({ message: "invalid group id" });
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "group not found" });
+    }
+
+    // member na hole message dekhte dibo na
+    const isMember = group.members.some(
+      (m) => String(m) === String(req.user._id)
+    );
+    if (!isMember) {
+      return res.status(403).json({ message: "you are not a member of this group" });
+    }
+
+    const messages = await GroupMessage.find({ group: groupId })
+      .populate("sender", "name profilePicture")
+      .sort({ createdAt: 1 });
+
+    res.status(200).json({ messages });
+  } catch (error) {
+    res.status(500).json({ message: "server error", error: error.message });
+  }
+};
+
+module.exports = { createGroup, getMyGroups, getGroupMessages };

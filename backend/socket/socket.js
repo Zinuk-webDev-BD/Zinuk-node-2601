@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const FriendRequest = require("../models/FriendRequest");
 const Message = require("../models/Message");
+const Group = require("../models/Group");
+const GroupMessage = require("../models/GroupMessage");
 const areFriends = require("../helpers/areFriends");
 
 // kon user er koyta socket (tab) connected ache
@@ -49,6 +51,14 @@ const setupSocket = (httpServer) => {
     // protita user nijer id er room e dhuke, jate tar kache message pathano jay
     socket.join(userId);
 
+    // user je je group er member, sob group er room e dhukiye dichhi
+    try {
+      const myGroups = await Group.find({ members: userId }).select("_id");
+      myGroups.forEach((g) => socket.join("group:" + g._id));
+    } catch (error) {
+      // group load na hole o baki kaj cholbe
+    }
+
     const count = (onlineCount.get(userId) || 0) + 1;
     onlineCount.set(userId, count);
 
@@ -82,6 +92,71 @@ const setupSocket = (httpServer) => {
         io.to(String(to)).emit("new_message", message);
         // sender er onno tab e pathano
         socket.to(userId).emit("new_message", message);
+
+        reply({ ok: true, message });
+      } catch (error) {
+        reply({ ok: false, message: "could not send message" });
+      }
+    });
+
+    // notun group banale member der socket ke oi group room e dhokano
+    socket.on("join_group", async (data, ack) => {
+      const reply = typeof ack === "function" ? ack : () => {};
+      try {
+        const groupId = data && data.groupId;
+        if (!mongoose.isValidObjectId(groupId)) {
+          return reply({ ok: false, message: "invalid group id" });
+        }
+
+        const group = await Group.findById(groupId);
+        const isMember =
+          group && group.members.some((m) => String(m) === userId);
+        if (!isMember) return reply({ ok: false, message: "you are not a member" });
+
+        socket.join("group:" + groupId);
+        reply({ ok: true });
+      } catch (error) {
+        reply({ ok: false, message: "could not join group" });
+      }
+    });
+
+    // group e message pathano
+    socket.on("send_group_message", async (data, ack) => {
+      const reply = typeof ack === "function" ? ack : () => {};
+      try {
+        const groupId = data && data.groupId;
+        const text = data && typeof data.text === "string" ? data.text.trim() : "";
+
+        if (!groupId || !text) {
+          return reply({ ok: false, message: "groupId and text are required" });
+        }
+        if (!mongoose.isValidObjectId(groupId)) {
+          return reply({ ok: false, message: "invalid group id" });
+        }
+        if (text.length > 1000) {
+          return reply({ ok: false, message: "message is too long" });
+        }
+
+        // sudhu group er member message pathate parbe
+        const group = await Group.findById(groupId);
+        const isMember =
+          group && group.members.some((m) => String(m) === userId);
+        if (!isMember) {
+          return reply({ ok: false, message: "you are not a member of this group" });
+        }
+
+        const created = await GroupMessage.create({
+          group: groupId,
+          sender: userId,
+          text,
+        });
+        const message = await GroupMessage.findById(created._id).populate(
+          "sender",
+          "name profilePicture"
+        );
+
+        // group room er sobar kache (nijer onno tab o) pathachhi
+        io.to("group:" + groupId).emit("new_group_message", message);
 
         reply({ ok: true, message });
       } catch (error) {

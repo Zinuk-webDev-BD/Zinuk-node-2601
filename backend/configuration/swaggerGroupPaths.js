@@ -5,7 +5,7 @@ const groupPaths = {
   "/groups": {
     post: {
       tags: ["Group"],
-      summary: "Create a group (premium users only)",
+      summary: "Create a group (premium users only, friends only as members)",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -19,7 +19,7 @@ const groupPaths = {
                 memberIds: {
                   type: "array",
                   items: { type: "string" },
-                  example: ["PUT_USER_ID_HERE"],
+                  example: ["PUT_FRIEND_ID_HERE"],
                 },
               },
             },
@@ -29,7 +29,7 @@ const groupPaths = {
       responses: {
         201: { description: "group created" },
         400: { description: "missing name, no members or invalid id" },
-        403: { description: "not a premium user" },
+        403: { description: "not a premium user, or a member is not your friend" },
         404: { description: "one or more users not found" },
       },
     },
@@ -38,6 +38,26 @@ const groupPaths = {
       summary: "Get the groups where I am a member",
       security: [{ bearerAuth: [] }],
       responses: { 200: { description: "my groups" } },
+    },
+  },
+  "/groups/{groupId}/messages": {
+    get: {
+      tags: ["Group"],
+      summary: "Get old messages of a group (members only). New messages come in real time through socket.io",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "groupId",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+        },
+      ],
+      responses: {
+        200: { description: "group messages" },
+        403: { description: "you are not a member" },
+        404: { description: "group not found" },
+      },
     },
   },
 };
