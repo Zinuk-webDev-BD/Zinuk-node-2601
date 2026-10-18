@@ -9,14 +9,14 @@ const {
   changePassword,
 } = require("../controllers/authController");
 const {
-  googleCallback,
-  googleFailure,
+  socialLoginSuccess,
+  socialLoginFailure,
 } = require("../controllers/socialAuthController");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// start passport for the google routes below
+// start passport for the social login routes below
 router.use(passport.initialize());
 
 // POST /api/v1/auth/register
@@ -48,13 +48,29 @@ router.get(
   "/google/callback",
   passport.authenticate("google", {
     session: false,
-    failureRedirect: "/api/v1/auth/google/failure",
+    failureRedirect: "/api/v1/auth/social/failure",
   }),
-  googleCallback
+  socialLoginSuccess
 );
 
-// GET /api/v1/auth/google/failure
-router.get("/google/failure", googleFailure);
+// GET /api/v1/auth/github (sends the user to the github login page)
+router.get(
+  "/github",
+  passport.authenticate("github", { scope: ["user:email"], session: false })
+);
+
+// GET /api/v1/auth/github/callback (github sends the user back here)
+router.get(
+  "/github/callback",
+  passport.authenticate("github", {
+    session: false,
+    failureRedirect: "/api/v1/auth/social/failure",
+  }),
+  socialLoginSuccess
+);
+
+// GET /api/v1/auth/social/failure (shared by google and github)
+router.get("/social/failure", socialLoginFailure);
 
 // GET /api/v1/auth/me (shows own info if the token is valid)
 router.get("/me", authMiddleware, (req, res) => {
