@@ -15,6 +15,7 @@ const userRoutes = require("./routes/userRoutes");
 const friendRoutes = require("./routes/friendRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const groupRoutes = require("./routes/groupRoutes");
 const setupSocket = require("./socket/socket");
 
 const PORT = process.env.PORT || 8000;
@@ -49,7 +50,8 @@ app.use(BASE_URL + "/chats", chatRoutes);
 
 // premium payment route
 app.use(BASE_URL + "/payments", paymentRoutes);
-
+// group route
+app.use(BASE_URL + "/groups", groupRoutes);
 // server start er jonno function, jekhane database and redis connect kora hocche
 const startServer = async () => {
   dbConfig();
