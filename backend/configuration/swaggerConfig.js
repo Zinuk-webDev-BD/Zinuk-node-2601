@@ -21,10 +21,10 @@ const swaggerSpec = {
     title: "Auth System API",
     version: "1.0.0",
     description:
-      "Authentication system with email otp (redis), jwt login, forgot/reset/change password, google and github login, and user profile.",
+      "Authentication system with email otp (redis), jwt login, forgot/reset/change password, google and github login, user profile and profile picture upload (cloudinary).",
   },
-  // all paths below start from this base url
-  servers: [{ url: "http://localhost:8000/api/v1/auth" }],
+  // every path below starts from this base url
+  servers: [{ url: "http://localhost:8000/api/v1" }],
   components: {
     securitySchemes: {
       // protected routes need a jwt token in the Authorization header
@@ -32,7 +32,7 @@ const swaggerSpec = {
     },
   },
   paths: {
-    "/register": {
+    "/auth/register": {
       post: {
         tags: ["Auth"],
         summary: "Register a new user and send an otp to the email",
@@ -47,7 +47,7 @@ const swaggerSpec = {
         },
       },
     },
-    "/verify-otp": {
+    "/auth/verify-otp": {
       post: {
         tags: ["Auth"],
         summary: "Verify the email with the otp (otp lives 5 minutes in redis)",
@@ -62,7 +62,7 @@ const swaggerSpec = {
         },
       },
     },
-    "/login": {
+    "/auth/login": {
       post: {
         tags: ["Auth"],
         summary: "Login with email and password, returns a jwt token",
@@ -78,7 +78,7 @@ const swaggerSpec = {
         },
       },
     },
-    "/forgot-password": {
+    "/auth/forgot-password": {
       post: {
         tags: ["Password"],
         summary: "Send a password reset otp to the email",
@@ -89,7 +89,7 @@ const swaggerSpec = {
         },
       },
     },
-    "/reset-password": {
+    "/auth/reset-password": {
       post: {
         tags: ["Password"],
         summary: "Set a new password using the reset otp",
@@ -103,7 +103,7 @@ const swaggerSpec = {
         },
       },
     },
-    "/change-password": {
+    "/auth/change-password": {
       put: {
         tags: ["Password"],
         summary: "Change password (login required)",
@@ -119,7 +119,7 @@ const swaggerSpec = {
         },
       },
     },
-    "/me": {
+    "/auth/me": {
       get: {
         tags: ["User"],
         summary: "Get the logged in user's own info (login required)",
@@ -130,22 +130,21 @@ const swaggerSpec = {
         },
       },
     },
-    "/google": {
+    "/auth/google": {
       get: {
         tags: ["Social Login"],
         summary: "Login with Google (open this url in the browser, not in swagger)",
         responses: { 302: reply("redirects to the google login page") },
       },
     },
-    "/github": {
+    "/auth/github": {
       get: {
         tags: ["Social Login"],
         summary: "Login with GitHub (open this url in the browser, not in swagger)",
         responses: { 302: reply("redirects to the github login page") },
       },
     },
-    // the profile apis live under /users, so the path is written in full
-    "/../users/profile": {
+    "/users/profile": {
       get: {
         tags: ["Profile"],
         summary: "Get my profile (login required)",
@@ -168,7 +167,7 @@ const swaggerSpec = {
                 properties: {
                   name: str("Zinuk"),
                   phone: str("01712345678"),
-                  bio: str("I love coding"),
+                  bio: { type: "string", maxLength: 200, example: "I love coding" },
                   address: str("Dhaka, Bangladesh"),
                 },
               },
@@ -177,7 +176,38 @@ const swaggerSpec = {
         },
         responses: {
           200: reply("profile updated successfully"),
-          400: reply("nothing to update or invalid data"),
+          400: reply("nothing to update, empty name or invalid phone number"),
+          401: reply("token missing or invalid"),
+        },
+      },
+    },
+    "/users/profile/picture": {
+      post: {
+        tags: ["Profile"],
+        summary: "Upload or replace my profile picture (login required, max 2MB)",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            // a file upload is sent as multipart/form-data
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["image"],
+                properties: {
+                  image: {
+                    type: "string",
+                    format: "binary",
+                    description: "jpg, png or webp image, 2MB or smaller",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: reply("profile picture updated, new image url returned"),
+          400: reply("no image, image too big or wrong file type"),
           401: reply("token missing or invalid"),
         },
       },
@@ -186,3 +216,4 @@ const swaggerSpec = {
 };
 
 module.exports = swaggerSpec;
+
